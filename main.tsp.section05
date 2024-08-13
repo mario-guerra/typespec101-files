@@ -1,0 +1,154 @@
+import "@typespec/http";
+
+using TypeSpec.Http;
+
+@service({
+  title: "Pet Store",
+})
+@server("https://example.com", "Single server endpoint")
+namespace PetStore;
+
+model Pet {
+  id: int32;
+
+  @minLength(1)
+  name: string;
+
+  @minValue(0)
+  @maxValue(100)
+  age: int32;
+
+  kind: petType;
+}
+
+enum petType {
+  dog: "dog",
+  cat: "cat",
+  fish: "fish",
+  bird: "bird",
+  reptile: "reptile",
+}
+
+model CommonParameters {
+  @header
+  requestID: string;
+
+  @query
+  locale?: string;
+
+  @header
+  clientVersion?: string;
+}
+
+@route("/pets")
+namespace Pets {
+  @get
+  op listPets(...CommonParameters): {
+    @statusCode statusCode: 200;
+    @body pets: Pet[];
+  };
+
+  @get
+  op getPet(@path petId: int32, ...CommonParameters): {
+    @statusCode statusCode: 200;
+    @body pet: Pet;
+  } | {
+    @statusCode statusCode: 404;
+    @body error: NotFoundError;
+  };
+
+  @post
+  // highlight-next-line
+  @useAuth(BearerAuth)
+  op createPet(@body pet: Pet, ...CommonParameters):
+    | {
+        @statusCode statusCode: 201;
+        @body newPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 202;
+        @body acceptedPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ValidationError;
+        // highlight-start
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: UnauthorizedError;
+        // highlight-end
+      };
+
+  @put
+  // highlight-next-line
+  @useAuth(BearerAuth)
+  op updatePet(@path petId: int32, @body pet: Pet, ...CommonParameters):
+    | {
+        @statusCode statusCode: 200;
+        @body updatedPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ValidationError;
+      }
+    | {
+        // highlight-start
+        @statusCode statusCode: 401;
+
+        @body error: UnauthorizedError;
+        // highlight-end
+      }
+    | {
+        @statusCode statusCode: 404;
+        @body error: NotFoundError;
+      }
+    | {
+        @statusCode statusCode: 500;
+        @body error: InternalServerError;
+      };
+
+  @delete
+  // highlight-next-line
+  @useAuth(BearerAuth)
+  op deletePet(@path petId: int32, ...CommonParameters): {
+    @statusCode statusCode: 204;
+    // highlight-start
+  } | {
+    @statusCode statusCode: 401;
+    @body error: UnauthorizedError;
+    // highlight-end
+  };
+}
+
+@error
+model NotFoundError {
+  code: "NOT_FOUND";
+  message: string;
+}
+
+@error
+model ValidationError {
+  code: "VALIDATION_ERROR";
+  message: string;
+  details: string[];
+}
+
+// highlight-start
+@error
+model UnauthorizedError {
+  code: "UNAUTHORIZED";
+  message: string;
+}
+// highlight-end
+
+@error
+model InternalServerError {
+  code: "INTERNAL_SERVER_ERROR";
+  message: string;
+}
+
+model InternalServerErrorResponse {
+  @statusCode statusCode: 500;
+  @body error: InternalServerError;
+}

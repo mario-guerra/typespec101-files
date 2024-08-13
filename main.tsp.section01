@@ -1,0 +1,33 @@
+import "@typespec/http";
+
+using TypeSpec.Http;
+
+@service({
+  title: "Pet Store",
+})
+@server("https://example.com", "Single server endpoint")
+namespace PetStore;
+
+model Pet {
+  id: int32;
+
+  // highlight-next-line
+  @minLength(1)
+  name: string;
+
+  // highlight-next-line
+  @minValue(0)
+  // highlight-next-line
+  @maxValue(100)
+  age: int32;
+
+  kind: petType;
+}
+
+enum petType {
+  dog: "dog",
+  cat: "cat",
+  fish: "fish",
+  bird: "bird",
+  reptile: "reptile",
+}

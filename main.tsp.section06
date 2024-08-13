@@ -1,0 +1,215 @@
+import "@typespec/http";
+import "@typespec/versioning";
+
+using TypeSpec.Http;
+using TypeSpec.Versioning;
+
+@service({
+  title: "Pet Store",
+})
+@server("https://example.com", "Single server endpoint")
+@versioned(Versions)
+namespace PetStore;
+
+enum Versions {
+  v1: "1.0",
+  v2: "2.0",
+}
+
+model Pet {
+  id: int32;
+
+  @minLength(1)
+  name: string;
+
+  @minValue(0)
+  @maxValue(100)
+  age: int32;
+
+  kind: petType;
+}
+
+enum petType {
+  dog: "dog",
+  cat: "cat",
+  fish: "fish",
+  bird: "bird",
+  reptile: "reptile",
+}
+
+@added(Versions.v2)
+model Toy {
+  id: int32;
+  name: string;
+}
+
+model CommonParameters {
+  @header
+  requestID: string;
+
+  @query
+  locale?: string;
+
+  @header
+  clientVersion?: string;
+}
+
+@route("/pets")
+namespace Pets {
+  @get
+  op listPets(...CommonParameters): {
+    @statusCode statusCode: 200;
+    @body pets: Pet[];
+  };
+
+  @get
+  op getPet(@path petId: int32, ...CommonParameters): {
+    @statusCode statusCode: 200;
+    @body pet: Pet;
+  } | {
+    @statusCode statusCode: 404;
+    @body error: NotFoundError;
+  };
+
+  @post
+  @useAuth(BearerAuth)
+  op createPet(@body pet: Pet, ...CommonParameters):
+    | {
+        @statusCode statusCode: 201;
+        @body newPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 202;
+        @body acceptedPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ValidationError;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: UnauthorizedError;
+      };
+
+  @put
+  @useAuth(BearerAuth)
+  op updatePet(@path petId: int32, @body pet: Pet, ...CommonParameters):
+    | {
+        @statusCode statusCode: 200;
+        @body updatedPet: Pet;
+      }
+    | {
+        @statusCode statusCode: 400;
+        @body error: ValidationError;
+      }
+    | {
+        @statusCode statusCode: 401;
+        @body error: UnauthorizedError;
+      }
+    | {
+        @statusCode statusCode: 404;
+        @body error: NotFoundError;
+      }
+    | {
+        @statusCode statusCode: 500;
+        @body error: InternalServerError;
+      };
+
+  @delete
+  @useAuth(BearerAuth)
+  op deletePet(@path petId: int32, ...CommonParameters): {
+    @statusCode statusCode: 204;
+  } | {
+    @statusCode statusCode: 401;
+    @body error: UnauthorizedError;
+  };
+
+  // highlight-start
+  @route("{petId}/toys")
+  namespace Toys {
+    @added(Versions.v2)
+    @get
+    op listToys(@path petId: int32, ...CommonParameters): {
+      @statusCode statusCode: 200;
+      @body toys: Toy[];
+    } | {
+      @statusCode statusCode: 404;
+      @body error: NotFoundError;
+    };
+
+    @added(Versions.v2)
+    @post
+    @useAuth(BearerAuth)
+    op createToy(@path petId: int32, @body toy: Toy, ...CommonParameters): {
+      @statusCode statusCode: 201;
+      @body newToy: Toy;
+    } | {
+      @statusCode statusCode: 400;
+      @body error: ValidationError;
+    } | {
+      @statusCode statusCode: 401;
+      @body error: UnauthorizedError;
+    };
+
+    @added(Versions.v2)
+    @put
+    @useAuth(BearerAuth)
+    op updateToy(@path petId: int32, @path toyId: int32, @body toy: Toy, ...CommonParameters):
+      | {
+          @body updatedToy: Toy;
+        }
+      | {
+          @statusCode statusCode: 400;
+          @body error: ValidationError;
+        }
+      | {
+          @statusCode statusCode: 401;
+          @body error: UnauthorizedError;
+        }
+      | {
+          @statusCode statusCode: 404;
+          @body error: NotFoundError;
+        };
+
+    @added(Versions.v2)
+    @delete
+    @useAuth(BearerAuth)
+    op deleteToy(@path petId: int32, @path toyId: int32, ...CommonParameters): {
+      @statusCode statusCode: 204;
+    } | {
+      @statusCode statusCode: 401;
+      @body error: UnauthorizedError;
+    };
+  }
+  // highlight-end
+}
+
+@error
+model NotFoundError {
+  code: "NOT_FOUND";
+  message: string;
+}
+
+@error
+model ValidationError {
+  code: "VALIDATION_ERROR";
+  message: string;
+  details: string[];
+}
+
+@error
+model UnauthorizedError {
+  code: "UNAUTHORIZED";
+  message: string;
+}
+
+@error
+model InternalServerError {
+  code: "INTERNAL_SERVER_ERROR";
+  message: string;
+}
+
+model InternalServerErrorResponse {
+  @statusCode statusCode: 500;
+  @body error: InternalServerError;
+}
