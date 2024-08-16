@@ -1,0 +1,86 @@
+import "@typespec/http";
+import "@typespec/versioning";
+
+import "./petstore/errors.tsp";
+import "./petstore/responses.tsp";
+import "./petstore/models.tsp";
+
+using TypeSpec.Http;
+using TypeSpec.Versioning;
+
+@service({
+    title: "Pet Store",
+})
+@server("https://example.com", "Single server endpoint")
+@versioned(Versions)
+namespace PetStore;
+
+@route("/pets")
+namespace Pets {
+  @get
+  op listPets(...CommonParameters): PetListResponse;
+
+  @get
+  op getPet(@path petId: int32, ...CommonParameters):
+    PetResponse | PetNotFoundResponse;
+ 
+  @useAuth(BearerAuth)
+  @post
+  op createPet(@body pet: Pet, ...CommonParameters):
+    | PetCreatedResponse
+    | PetAcceptedResponse
+    | PetErrorResponse
+    | PetUnauthorizedResponse;
+
+  @useAuth(BearerAuth)
+  @put
+  op updatePet(@path petId: int32, @body pet: Pet, ...CommonParameters):
+    | PetResponse
+    | PetErrorResponse
+    | PetUnauthorizedResponse
+    | PetNotFoundResponse
+    | InternalServerErrorResponse;
+
+  @useAuth(BearerAuth)
+  @delete
+  op deletePet(@path petId: int32, ...CommonParameters):
+    | PetNoContentResponse
+    | PetUnauthorizedResponse;
+
+  @route("{petId}/toys")
+  namespace Toys {
+    @added(Versions.v2)
+    @get
+    op listToys(@path petId: int32, ...CommonParameters):
+      ToyListResponse | ToyNotFoundResponse;
+
+    @added(Versions.v2)
+    @post
+    op createToy(@path petId: int32, @body toy: Toy, ...CommonParameters):
+      | ToyCreatedResponse
+      | ToyErrorResponse
+      | ToyUnauthorizedResponse
+      | ToyNotFoundResponse;
+
+    @added(Versions.v2)
+    @put
+    op updateToy(@path petId: int32, @path toyId: int32, @body toy: Toy, ...CommonParameters):
+      | ToyResponse
+      | ToyErrorResponse
+      | ToyUnauthorizedResponse
+      | ToyNotFoundResponse
+      | InternalServerErrorResponse;
+
+    @added(Versions.v2)
+    @get
+    op getToy(@path petId: int32, @path toyId: int32, ...CommonParameters):
+      ToyResponse | ToyNotFoundResponse;
+
+    @added(Versions.v2)
+    @delete
+    op deleteToy(@path petId: int32, @path toyId: int32, ...CommonParameters):
+      | PetNoContentResponse
+      | ToyNotFoundResponse;  
+
+  }
+}
